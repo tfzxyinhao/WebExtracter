@@ -1,0 +1,89 @@
+# Microsoft Developer Studio Generated Dependency File, included by WebExtract.mak
+
+.\greta\regexpr2.cpp : \
+	".\greta\regexpr2.h"\
+	".\greta\reimpl2.h"\
+	".\greta\restack.h"\
+	".\greta\syntax2.h"\
+	
+
+.\StdAfx.cpp : \
+	".\StdAfx.h"\
+	"c:\program files\microsoft sdk\include\basetsd.h"\
+	"c:\program files\microsoft sdk\include\guiddef.h"\
+	"c:\program files\microsoft sdk\include\propidl.h"\
+	"c:\program files\microsoft sdk\include\reason.h"\
+	"c:\program files\microsoft sdk\include\shldisp.h"\
+	"c:\program files\microsoft sdk\include\shobjidl.h"\
+	"c:\program files\microsoft sdk\include\shtypes.h"\
+	"c:\program files\microsoft sdk\include\stralign.h"\
+	"c:\program files\microsoft sdk\include\tvout.h"\
+	
+
+.\greta\syntax2.cpp : \
+	".\greta\syntax2.h"\
+	"c:\program files\microsoft sdk\include\basetsd.h"\
+	"c:\program files\microsoft sdk\include\guiddef.h"\
+	"c:\program files\microsoft sdk\include\propidl.h"\
+	"c:\program files\microsoft sdk\include\reason.h"\
+	"c:\program files\microsoft sdk\include\stralign.h"\
+	"c:\program files\microsoft sdk\include\tvout.h"\
+	"c:\program files\microsoft sdk\include\winefs.h"\
+	
+
+.\webbrowser.cpp : \
+	".\webbrowser.h"\
+	"c:\program files\microsoft sdk\include\basetsd.h"\
+	"c:\program files\microsoft sdk\include\guiddef.h"\
+	"c:\program files\microsoft sdk\include\propidl.h"\
+	"c:\program files\microsoft sdk\include\reason.h"\
+	"c:\program files\microsoft sdk\include\stralign.h"\
+	"c:\program files\microsoft sdk\include\tvout.h"\
+	
+
+.\WebExtract.cpp : \
+	".\greta\regexpr2.h"\
+	".\greta\reimpl2.h"\
+	".\greta\restack.h"\
+	".\greta\syntax2.h"\
+	".\inc\curl.h"\
+	".\inc\curlver.h"\
+	".\inc\easy.h"\
+	".\inc\multi.h"\
+	".\webbrowser.h"\
+	".\WebExtract.h"\
+	".\WebExtractDlg.h"\
+	"c:\program files\microsoft sdk\include\basetsd.h"\
+	"c:\program files\microsoft sdk\include\guiddef.h"\
+	"c:\program files\microsoft sdk\include\propidl.h"\
+	"c:\program files\microsoft sdk\include\reason.h"\
+	"c:\program files\microsoft sdk\include\stralign.h"\
+	"c:\program files\microsoft sdk\include\tvout.h"\
+	"c:\program files\microsoft sdk\include\wspiapi.h"\
+	
+
+.\WebExtract.rc : \
+	".\res\WebExtract.ico"\
+	".\res\WebExtract.rc2"\
+	
+
+.\WebExtractDlg.cpp : \
+	".\greta\regexpr2.h"\
+	".\greta\reimpl2.h"\
+	".\greta\restack.h"\
+	".\greta\syntax2.h"\
+	".\inc\curl.h"\
+	".\inc\curlver.h"\
+	".\inc\easy.h"\
+	".\inc\multi.h"\
+	".\webbrowser.h"\
+	".\WebExtract.h"\
+	".\WebExtractDlg.h"\
+	"c:\program files\microsoft sdk\include\basetsd.h"\
+	"c:\program files\microsoft sdk\include\guiddef.h"\
+	"c:\program files\microsoft sdk\include\propidl.h"\
+	"c:\program files\microsoft sdk\include\reason.h"\
+	"c:\program files\microsoft sdk\include\stralign.h"\
+	"c:\program files\microsoft sdk\include\tvout.h"\
+	"c:\program files\microsoft sdk\include\wspiapi.h"\
+	
