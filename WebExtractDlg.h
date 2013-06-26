@@ -19,6 +19,8 @@
 using namespace regex;
 #pragma comment(lib,"libcurl.lib")
 
+#define TIMER_STARTUP			1
+#define TIMER_STARTUP_TIMEOUR	3000
 #define MAKEDWORD(h,l) ((((h)&0x0000ffff)<<16)|((l)&0x0000ffff))
 
 
@@ -36,12 +38,15 @@ public:
 	HANDLE			m_hThread;
 
 	static UINT __stdcall WorkThread(void* arg);		//¹ÉÆ±Ïß³Ì
-
 	static size_t SaveTmpWebPage(void *ptr, size_t size, size_t nmemb, void *param);
 
 	void	UpdateParam();
+	void	SetButtonCheck(UINT nID,int nCheck = 1);
 	void	SetControlText(UINT nId,LPCTSTR lpstrText);
 	void	EnableControl(UINT nId,BOOL bEnable = TRUE);
+
+	int		LoadContext();
+	int		SaveContext();
 
 	int		DownloadSource();
 	int		StopThread(HANDLE& hThread,BOOL& bRun);
@@ -82,6 +87,7 @@ protected:
 	afx_msg void OnSelchangedTree(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnStatusTextChangeWeb(LPCTSTR Text);
+	afx_msg void OnTimer(UINT nIDEvent);
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

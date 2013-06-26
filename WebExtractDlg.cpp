@@ -14,6 +14,7 @@ CWebExtractDlg::CWebExtractDlg(CWnd* pParent /*=NULL*/)
 	//{{AFX_DATA_INIT(CWebExtractDlg)
 		m_bRun = FALSE;
 		m_hThread = NULL;
+		m_bWeb = TRUE;
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -44,6 +45,7 @@ BEGIN_MESSAGE_MAP(CWebExtractDlg, CDialog)
 	ON_WM_CLOSE()
 	ON_NOTIFY(TVN_SELCHANGED, IDC_TREE, OnSelchangedTree)
 	ON_WM_SIZE()
+	ON_WM_TIMER()
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -57,14 +59,18 @@ BOOL CWebExtractDlg::OnInitDialog()
 	
 	m_source.SetLimitText(-1);
 	curl_global_init(CURL_GLOBAL_ALL);
+
+	SetButtonCheck(IDC_CHECK_SETTOP);
 	SetControlText(IDC_URL,"http://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/market/sec_tradinfo/stockcode/eisdeqty_c.htm");
 	
 	relayout();
+	SetTimer(TIMER_STARTUP,TIMER_STARTUP_TIMEOUR,NULL);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 void CWebExtractDlg::OnClose() 
 {
 	curl_global_cleanup();
+	SaveContext();
 	CDialog::OnClose();
 }
 
@@ -123,6 +129,8 @@ void CWebExtractDlg::OnGetresult()
 	m_source.GetWindowText(strSource);
 	if(strSource.GetLength() < 1)
 		return;
+
+	EnableControl(IDC_GETRESULT,FALSE);
 	
 	size = 0;
 	nGroup = 0;
@@ -133,6 +141,7 @@ void CWebExtractDlg::OnGetresult()
 	rpattern patStock(m_strRegex.GetBuffer(0),ALLBACKREFS | GLOBAL);
 	br = patStock.match(lpstr,results);
 
+	m_source.EnableWindow(FALSE);
 	if (br.matched){
 		match_results::backref_vector vec = results.all_backrefs();
 		match_results::backref_vector::iterator Iter = vec.begin();
@@ -154,9 +163,10 @@ void CWebExtractDlg::OnGetresult()
 			}
 		}
 	}
-
+	m_source.EnableWindow(TRUE);
 	strInfo.Format("group:%d,result:%d,TimeCose:%dms",nGroup,size,GetTickCount()-dwTime);
 	SetControlText(IDC_STATIC_INFO,strInfo);
+	EnableControl(IDC_GETRESULT);
 }
 
 UINT __stdcall CWebExtractDlg::WorkThread( void* arg )
@@ -232,6 +242,9 @@ int CWebExtractDlg::DownloadSource()
 
 	//¹«¹²ÉèÖÃ
 	curl_easy_setopt(curl,CURLOPT_URL,m_strUrl);
+	curl_easy_setopt(curl,CURLOPT_REFERER,m_strUrl);
+	curl_easy_setopt(curl,CURLOPT_USERAGENT,"Mozilla/5.0 (Linux; N; Android 2.3.5; zh-cn; HTC_IncredibleS_S710e Build/GRJ90) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1");
+	//curl_easy_setopt(curl,CURLOPT_USERAGENT,"Googlebot/2.1 (+http://www.googlebot.com/bot.html)");
 	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl,CURLOPT_WRITEDATA,&strContent);
 	curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,SaveTmpWebPage);
@@ -353,12 +366,15 @@ void CWebExtractDlg::OnSelchangedTree(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 
 	hItem = m_tree.GetSelectedItem();
-	dwData = m_tree.GetItemData(hItem);
-
-	dwEnd = (dwData&0x0000ffff);
-	dwStart = (dwData>>16);
-
-	m_source.SetSel(dwStart,dwEnd,FALSE);
+	if(hItem && pNMTreeView->action){
+		dwData = m_tree.GetItemData(hItem);
+		
+		dwEnd = (dwData&0x0000ffff);
+		dwStart = (dwData>>16);
+		
+		m_source.SetSel(dwStart,dwEnd,FALSE);
+	}
+	
 }
 
 void CWebExtractDlg::OnSize(UINT nType, int cx, int cy) 
@@ -424,10 +440,11 @@ int CWebExtractDlg::relayout()
 	rtItem.OffsetRect(rtItem.Width()+nGap,nGap);
 	rtItem.right = rtItem.left + 15;
 	rtItem.bottom = rtItem.top + 15;
-	m_web.MoveWindow(rtItem);
+	if(IsWindow(m_web.GetSafeHwnd()))
+		m_web.MoveWindow(rtItem);
 
 	rtItem.right = rtClient.right - nBorder;
-	rtItem.top = rtClient.top +nBorder;
+	rtItem.top = rtClient.top + nBorder;
 	rtItem.left = rtItem.right - nButtonWidth;
 	rtItem.bottom = rtItem.top + nButtonHeight;
 	pWnd = GetDlgItem(IDC_GETRESULT);
@@ -451,4 +468,31 @@ int CWebExtractDlg::relayout()
 void CWebExtractDlg::OnStatusTextChangeWeb(LPCTSTR Text) 
 {
 	SetWindowText(Text);	
+}
+
+void CWebExtractDlg::SetButtonCheck( UINT nID,int nCheck )
+{
+	CButton* pBtn = (CButton*)GetDlgItem(IDC_CHECK_SETTOP);
+	if(pBtn && pBtn->GetSafeHwnd()){
+		pBtn->SetCheck(nCheck);
+	}
+}
+
+void CWebExtractDlg::OnTimer(UINT nIDEvent) 
+{
+	if(TIMER_STARTUP_TIMEOUR == nIDEvent){
+		KillTimer(nIDEvent);
+		LoadContext();
+	}
+	CDialog::OnTimer(nIDEvent);
+}
+
+int CWebExtractDlg::LoadContext()
+{
+	return 1;
+}
+
+int CWebExtractDlg::SaveContext()
+{
+	return 1;
 }

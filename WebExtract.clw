@@ -30,7 +30,7 @@ ImplementationFile=WebExtractDlg.cpp
 Filter=D
 BaseClass=CDialog
 VirtualFilter=dWC
-LastObject=IDC_WEB
+LastObject=CWebExtractDlg
 
 
 
