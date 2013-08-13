@@ -13,7 +13,11 @@
 #include <string>
 #include <atlbase.h>
 #include <process.h>
+
+#include "FilePath.h"
 #include "SourceEdit.h"
+#include "DispatchImpl.h"
+#include "SplitterControl.h"
 #include "greta/regexpr2.h"
 
 using namespace regex;
@@ -21,9 +25,12 @@ using namespace regex;
 
 #define TIMER_STARTUP			1
 #define TIMER_STARTUP_TIMEOUR	3000
+
+#define HIDWORD(x) (x>>16)
+#define LODWORD(x) (x&0x0000ffff)
 #define MAKEDWORD(h,l) ((((h)&0x0000ffff)<<16)|((l)&0x0000ffff))
 
-
+typedef std::basic_string<TCHAR> string;
 typedef UINT (__stdcall *pfnWorkThread)(void *);
 
 class CWebExtractDlg : public CDialog
@@ -45,8 +52,7 @@ public:
 	void	SetControlText(UINT nId,LPCTSTR lpstrText);
 	void	EnableControl(UINT nId,BOOL bEnable = TRUE);
 
-	int		LoadContext();
-	int		SaveContext();
+	int		Serialize(BOOL bLoad = TRUE);
 
 	int		DownloadSource();
 	int		StopThread(HANDLE& hThread,BOOL& bRun);
@@ -56,18 +62,26 @@ public:
 	int		relayout();
 
 	CString	m_strUrl,m_strRegex;
+	CStringArray		m_RecentList;
+
+	CDispatchImpl	m_Disp;
 // Dialog Data
 	//{{AFX_DATA(CWebExtractDlg)
 	enum { IDD = IDD_WEBEXTRACT_DIALOG };
-	CSourceEdit	m_source;
-	CTreeCtrl	m_tree;
+	CStatic	m_resultinfo;
+	CEdit	m_regx;
 	CWebBrowser	m_web;
+	CTreeCtrl	m_tree;
+	CSourceEdit	m_source;
+	CSplitterControl m_wndSplitter;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CWebExtractDlg)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+	virtual void OnOK();
+	virtual void OnCancel();
 	//}}AFX_VIRTUAL
 
 // Implementation
@@ -85,9 +99,11 @@ protected:
 	afx_msg void OnClose();
 	afx_msg void OnDocumentCompleteWeb(LPDISPATCH pDisp, VARIANT FAR* URL);
 	afx_msg void OnSelchangedTree(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnResizeTree(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnStatusTextChangeWeb(LPCTSTR Text);
 	afx_msg void OnTimer(UINT nIDEvent);
+	afx_msg void OnBeforeNavigate2Web(LPDISPATCH pDisp, VARIANT FAR* URL, VARIANT FAR* Flags, VARIANT FAR* TargetFrameName, VARIANT FAR* PostData, VARIANT FAR* Headers, BOOL FAR* Cancel);
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

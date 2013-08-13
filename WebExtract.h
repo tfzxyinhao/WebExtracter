@@ -14,10 +14,7 @@
 
 #include "resource.h"		// main symbols
 
-/////////////////////////////////////////////////////////////////////////////
-// CWebExtractApp:
-// See WebExtract.cpp for the implementation of this class
-//
+#include "Dump.h"
 
 class CWebExtractApp : public CWinApp
 {

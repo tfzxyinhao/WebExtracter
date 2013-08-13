@@ -40,6 +40,7 @@ CWebExtractApp theApp;
 
 BOOL CWebExtractApp::InitInstance()
 {
+	CDump::Start();
 	AfxEnableControlContainer();
 
 	// Standard initialization

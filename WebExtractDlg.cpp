@@ -29,9 +29,11 @@ void CWebExtractDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CWebExtractDlg)
-	DDX_Control(pDX, IDC_SOURCE, m_source);
-	DDX_Control(pDX, IDC_TREE, m_tree);
+	DDX_Control(pDX, IDC_STATIC_INFO, m_resultinfo);
+	DDX_Control(pDX, IDC_REGEX, m_regx);
 	DDX_Control(pDX, IDC_WEB, m_web);
+	DDX_Control(pDX, IDC_TREE, m_tree);
+	DDX_Control(pDX, IDC_SOURCE, m_source);
 	//}}AFX_DATA_MAP
 }
 
@@ -44,6 +46,7 @@ BEGIN_MESSAGE_MAP(CWebExtractDlg, CDialog)
 	ON_BN_CLICKED(IDC_CHECK_SETTOP, OnCheckSettop)
 	ON_WM_CLOSE()
 	ON_NOTIFY(TVN_SELCHANGED, IDC_TREE, OnSelchangedTree)
+	ON_NOTIFY(SPN_SIZED, IDC_SPLITBAR, OnResizeTree)
 	ON_WM_SIZE()
 	ON_WM_TIMER()
 	//}}AFX_MSG_MAP
@@ -61,16 +64,20 @@ BOOL CWebExtractDlg::OnInitDialog()
 	curl_global_init(CURL_GLOBAL_ALL);
 
 	SetButtonCheck(IDC_CHECK_SETTOP);
-	SetControlText(IDC_URL,"http://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/market/sec_tradinfo/stockcode/eisdeqty_c.htm");
+	SetControlText(IDC_URL,_T("http://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/market/sec_tradinfo/stockcode/eisdeqty_c.htm"));
+
+	m_wndSplitter.Create(WS_CHILD | WS_VISIBLE,CRect(0,0,1,1), this, IDC_SPLITBAR);
+	m_wndSplitter.SetStyle();
+	m_wndSplitter.SetRange(0,1500, -1);
 	
 	relayout();
 	SetTimer(TIMER_STARTUP,TIMER_STARTUP_TIMEOUR,NULL);
-	return TRUE;  // return TRUE  unless you set the focus to a control
+	return TRUE;
 }
 void CWebExtractDlg::OnClose() 
 {
 	curl_global_cleanup();
-	SaveContext();
+	Serialize(FALSE);
 	CDialog::OnClose();
 }
 
@@ -112,6 +119,9 @@ void CWebExtractDlg::OnGetsoucrce()
 	else
 		StartThread(m_hThread,m_bRun,WorkThread);
 
+
+	m_RecentList.Add(m_strUrl);
+
 	EnableControl(IDC_GETSOUCRCE,FALSE);
 }
 
@@ -138,33 +148,39 @@ void CWebExtractDlg::OnGetresult()
 	dwTime = GetTickCount();
 	lpstr = strSource.GetBuffer(0);
 
-	rpattern patStock(m_strRegex.GetBuffer(0),ALLBACKREFS | GLOBAL);
-	br = patStock.match(lpstr,results);
-
-	m_source.EnableWindow(FALSE);
-	if (br.matched){
-		match_results::backref_vector vec = results.all_backrefs();
-		match_results::backref_vector::iterator Iter = vec.begin();
-		nGroup = patStock.cgroups();
-		size = vec.size();
-		while (Iter != vec.end()){
-			hRoot = m_tree.InsertItem(Iter->str().c_str());
-			dwStart = (Iter->begin() - lpstr);
-			dwEnd = (Iter->end() - lpstr);
-			m_tree.SetItemData(hRoot,MAKEDWORD(dwStart,dwEnd));
-			++Iter;
-
-			for (i=1;i<nGroup;i++){
-				hItem = m_tree.InsertItem(Iter->str().c_str(),hRoot);
+	try{
+		rpattern patStock(m_strRegex.GetBuffer(0),ALLBACKREFS | GLOBAL);
+		br = patStock.match(lpstr,results);
+		
+		if (br.matched){
+			match_results::backref_vector vec = results.all_backrefs();
+			match_results::backref_vector::iterator Iter = vec.begin();
+			nGroup = patStock.cgroups();
+			size = vec.size();
+			while (Iter != vec.end()){
+				hRoot = m_tree.InsertItem(Iter->str().c_str());
 				dwStart = (Iter->begin() - lpstr);
 				dwEnd = (Iter->end() - lpstr);
-				m_tree.SetItemData(hItem,MAKEDWORD(dwStart,dwEnd));
+				m_tree.SetItemData(hRoot,MAKEDWORD(dwStart,dwEnd));
 				++Iter;
+				
+				for (i=1;i<nGroup;i++){
+					hItem = m_tree.InsertItem(Iter->str().c_str(),hRoot);
+					dwStart = (Iter->begin() - lpstr);
+					dwEnd = (Iter->end() - lpstr);
+					m_tree.SetItemData(hItem,MAKEDWORD(dwStart,dwEnd));
+					++Iter;
+				}
 			}
 		}
+	}catch(CException* e){
+		TCHAR szError[MAX_PATH];
+		e->GetErrorMessage(szError,_MAX_PATH);
+		e->Delete();
+		MessageBox(szError,_T("异常"),MB_OK|MB_ICONERROR);
 	}
-	m_source.EnableWindow(TRUE);
-	strInfo.Format("group:%d,result:%d,TimeCose:%dms",nGroup,size,GetTickCount()-dwTime);
+
+	strInfo.Format(_T("group:%d,result:%d,TimeCose:%dms"),nGroup,size,GetTickCount()-dwTime);
 	SetControlText(IDC_STATIC_INFO,strInfo);
 	EnableControl(IDC_GETRESULT);
 }
@@ -234,7 +250,7 @@ int CWebExtractDlg::DownloadSource()
 	CURLcode ret;
 	long nRespCode;
 	CString strError;
-	std::string strContent;
+	string strContent;
 
 	curl = curl_easy_init();
 	if(curl == NULL)
@@ -244,7 +260,6 @@ int CWebExtractDlg::DownloadSource()
 	curl_easy_setopt(curl,CURLOPT_URL,m_strUrl);
 	curl_easy_setopt(curl,CURLOPT_REFERER,m_strUrl);
 	curl_easy_setopt(curl,CURLOPT_USERAGENT,"Mozilla/5.0 (Linux; N; Android 2.3.5; zh-cn; HTC_IncredibleS_S710e Build/GRJ90) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1");
-	//curl_easy_setopt(curl,CURLOPT_USERAGENT,"Googlebot/2.1 (+http://www.googlebot.com/bot.html)");
 	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl,CURLOPT_WRITEDATA,&strContent);
 	curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,SaveTmpWebPage);
@@ -255,13 +270,13 @@ int CWebExtractDlg::DownloadSource()
 	if(ret == CURLE_OK){
 		curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE,&nRespCode);
 		if(nRespCode != 200){
-			strError.Format("[+下载错误] 响应代码:%d",nRespCode);
-			MessageBox(strError,"提示",MB_OK|MB_ICONERROR);
+			strError.Format(_T("[+下载错误] 响应代码:%d"),nRespCode);
+			MessageBox(strError,_T("提示"),MB_OK|MB_ICONERROR);
 		}else{
 			EnableControl(IDC_GETSOUCRCE);
 			SetControlText(IDC_SOURCE,strContent.c_str());
 
-			if(file.Open("tmp.html",CFile::modeCreate|CFile::modeWrite)){
+			if(file.Open(_T("tmp.html"),CFile::modeCreate|CFile::modeWrite)){
 				file.Write(strContent.c_str(),strContent.size());
 				file.Close();
 			}
@@ -318,6 +333,7 @@ BEGIN_EVENTSINK_MAP(CWebExtractDlg, CDialog)
     //{{AFX_EVENTSINK_MAP(CWebExtractDlg)
 	ON_EVENT(CWebExtractDlg, IDC_WEB, 259 /* DocumentComplete */, OnDocumentCompleteWeb, VTS_DISPATCH VTS_PVARIANT)
 	ON_EVENT(CWebExtractDlg, IDC_WEB, 102 /* StatusTextChange */, OnStatusTextChangeWeb, VTS_BSTR)
+	ON_EVENT(CWebExtractDlg, IDC_WEB, 250 /* BeforeNavigate2 */, OnBeforeNavigate2Web, VTS_DISPATCH VTS_PVARIANT VTS_PVARIANT VTS_PVARIANT VTS_PVARIANT VTS_PVARIANT VTS_PBOOL)
 	//}}AFX_EVENTSINK_MAP
 END_EVENTSINK_MAP()
 
@@ -344,17 +360,36 @@ char* CWebExtractDlg::SaveToMem( IDispatch* pDisp )
 	hr = spPersistStreamInit->Save(spStream,FALSE);
 
 	hr = GetHGlobalFromStream(spStream,&hMem);
-	char* pstr = (char*)GlobalLock(hMem);
+	LPTSTR pstr = (LPTSTR)GlobalLock(hMem);
 	SetControlText(IDC_SOURCE,pstr);
 	GlobalUnlock(hMem);
 	GlobalFree(hMem);
 
 	return 0;
 }
+
 void CWebExtractDlg::OnDocumentCompleteWeb(LPDISPATCH pDisp, VARIANT FAR* URL) 
 {
 	SaveToMem(m_web.GetDocument());
 	EnableControl(IDC_GETSOUCRCE);
+}
+
+void CWebExtractDlg::OnResizeTree( NMHDR* pNMHDR, LRESULT* pResult )
+{
+	*pResult = 0;
+	SPC_NMHDR *pSPC = (SPC_NMHDR*)pNMHDR;
+	if(pSPC == NULL)
+		return;
+	
+	int delta = pSPC->delta;
+	CSplitterControl::ChangeWidth(&m_source, delta);
+	CSplitterControl::ChangeWidth(&m_tree, -delta, CW_RIGHTALIGN);
+
+	CSplitterControl::ChangeWidth(&m_regx, -delta, CW_RIGHTALIGN);
+	CSplitterControl::ChangeWidth(&m_resultinfo, -delta, CW_RIGHTALIGN);
+
+	Invalidate();
+	UpdateWindow();
 }
 
 void CWebExtractDlg::OnSelchangedTree(NMHDR* pNMHDR, LRESULT* pResult) 
@@ -369,9 +404,8 @@ void CWebExtractDlg::OnSelchangedTree(NMHDR* pNMHDR, LRESULT* pResult)
 	if(hItem && pNMTreeView->action){
 		dwData = m_tree.GetItemData(hItem);
 		
-		dwEnd = (dwData&0x0000ffff);
-		dwStart = (dwData>>16);
-		
+		dwEnd = LOWORD(dwData);
+		dwStart = HIDWORD(dwData);
 		m_source.SetSel(dwStart,dwEnd,FALSE);
 	}
 	
@@ -388,7 +422,7 @@ int CWebExtractDlg::relayout()
 {
 	CWnd* pWnd;
 	CRect rtClient,rtItem;
-	int nColumn,nTextHeight,nButtonWidth,nButtonHeight,nGap,nBorder;
+	int nColumn,nTextHeight,nButtonWidth,nButtonHeight,nGap,nBorder,nLeft;
 
 	nGap = 5;
 	nBorder = 2;
@@ -399,6 +433,7 @@ int CWebExtractDlg::relayout()
 	GetClientRect(rtClient);
 	nColumn = rtClient.Width()/10;
 
+	//移动源码
 	rtItem.left = rtClient.left+nBorder;
 	rtItem.top = rtClient.top + nTextHeight+nBorder;
 	rtItem.right = rtClient.left + nColumn*5;
@@ -407,7 +442,16 @@ int CWebExtractDlg::relayout()
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
-	rtItem.left = rtClient.left + nColumn*5 + nBorder*2;
+	nLeft = rtClient.left + nColumn*5 + nBorder*3;
+
+	//移动分割条
+	rtItem.left = rtItem.right;
+	rtItem.right = nLeft - nBorder;
+	if(IsWindow(m_wndSplitter.GetSafeHwnd()))
+		m_wndSplitter.MoveWindow(rtItem);
+
+	//移动结果显示控件
+	rtItem.left = nLeft;
 	rtItem.right = rtClient.right - nBorder;
 	rtItem.top = rtClient.top + nTextHeight*2+nBorder+120;
 	rtItem.bottom = rtClient.bottom - nBorder;
@@ -415,7 +459,8 @@ int CWebExtractDlg::relayout()
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
-	rtItem.left = rtClient.left + nColumn*5 + nBorder*2;
+	//移动正则控件
+	rtItem.left = nLeft;
 	rtItem.right = rtClient.right - nBorder;
 	rtItem.top = rtClient.top + nTextHeight*2;
 	rtItem.bottom = rtItem.top + 120 - nGap;
@@ -423,7 +468,8 @@ int CWebExtractDlg::relayout()
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
-	rtItem.left = rtClient.left + nColumn*5 + nBorder*2;
+	//移动结果信息控件
+	rtItem.left = nLeft;
 	rtItem.top = rtClient.top + nTextHeight+nBorder;
 	rtItem.right = rtClient.right - nButtonWidth*2 - nBorder*2;
 	rtItem.bottom = rtItem.top + nButtonHeight;
@@ -431,18 +477,21 @@ int CWebExtractDlg::relayout()
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
+	//移动置顶控件
 	rtItem.OffsetRect(rtItem.Width()+nGap,0);
 	rtItem.right = rtItem.left + nButtonWidth;
 	pWnd = GetDlgItem(IDC_CHECK_SETTOP);
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
+	//移动web控件
 	rtItem.OffsetRect(rtItem.Width()+nGap,nGap);
 	rtItem.right = rtItem.left + 15;
 	rtItem.bottom = rtItem.top + 15;
 	if(IsWindow(m_web.GetSafeHwnd()))
 		m_web.MoveWindow(rtItem);
 
+	//移动正则匹配按钮
 	rtItem.right = rtClient.right - nBorder;
 	rtItem.top = rtClient.top + nBorder;
 	rtItem.left = rtItem.right - nButtonWidth;
@@ -451,11 +500,13 @@ int CWebExtractDlg::relayout()
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
+	//移动下载源码控件
 	rtItem.OffsetRect(0-nButtonWidth-nGap,0);
 	pWnd = GetDlgItem(IDC_GETSOUCRCE);
 	if(pWnd)
 		pWnd->MoveWindow(rtItem);
 
+	//移动地址输入控件
 	rtItem.OffsetRect(0-nButtonWidth-nGap,0);
 	rtItem.left = rtClient.left + nBorder + nTextHeight;
 	pWnd = GetDlgItem(IDC_URL);
@@ -467,7 +518,7 @@ int CWebExtractDlg::relayout()
 
 void CWebExtractDlg::OnStatusTextChangeWeb(LPCTSTR Text) 
 {
-	SetWindowText(Text);	
+	SetWindowText(Text);
 }
 
 void CWebExtractDlg::SetButtonCheck( UINT nID,int nCheck )
@@ -482,17 +533,58 @@ void CWebExtractDlg::OnTimer(UINT nIDEvent)
 {
 	if(TIMER_STARTUP_TIMEOUR == nIDEvent){
 		KillTimer(nIDEvent);
-		LoadContext();
+		Serialize();
 	}
 	CDialog::OnTimer(nIDEvent);
 }
 
-int CWebExtractDlg::LoadContext()
+
+int CWebExtractDlg::Serialize( BOOL bLoad /*= TRUE*/ )
 {
+	CFile file;
+	UINT uflags,uMode;
+	CString strPath,strConfig;
+	CFilePath::GetModulePath(strPath);
+	strConfig.Format(_T("%s\\sesssion.dat"));
+	
+	if(!CFilePath::IsFileExists(strConfig))
+		return 0;
+
+	if(bLoad){
+		uMode = CArchive::load;
+		uflags = CFile::modeRead;
+	}else{
+		uMode = CArchive::store;
+		uflags = CFile::modeWrite|CFile::modeCreate;
+	}
+
+	
+	if(file.Open(strConfig,uflags)){
+		CArchive ar(&file,uMode);
+
+		m_RecentList.Serialize(ar);
+		m_regx.Serialize(ar);
+		m_source.Serialize(ar);
+			
+		ar.Close();
+		file.Close();
+	}
 	return 1;
 }
 
-int CWebExtractDlg::SaveContext()
+void CWebExtractDlg::OnOK()
 {
-	return 1;
+	DownloadSource();
 }
+
+void CWebExtractDlg::OnCancel()
+{
+	CDialog::OnCancel();
+}
+
+void CWebExtractDlg::OnBeforeNavigate2Web(LPDISPATCH pDisp, VARIANT FAR* URL, VARIANT FAR* Flags, VARIANT FAR* TargetFrameName, VARIANT FAR* PostData, VARIANT FAR* Headers, BOOL FAR* Cancel) 
+{
+	CString strUrl(URL->bstrVal);
+	OutputDebugString(strUrl);OutputDebugString(_T("\r\n"));
+}
+
